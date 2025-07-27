@@ -1,0 +1,1 @@
+# checkout-entrypoint-show-checkout-golang
