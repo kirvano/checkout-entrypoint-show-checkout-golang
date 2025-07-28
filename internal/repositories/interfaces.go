@@ -71,6 +71,7 @@ type PixelsRepository interface {
 
 // PlansRepository defines the interface for plan data access
 type PlansRepository interface {
+	FindByUuid(ctx context.Context, uuid string) (*Plan, error)
 	FindByOffer(ctx context.Context, offerID int) ([]*Plan, error)
 }
 
@@ -133,18 +134,15 @@ type Format struct {
 	Slug string `json:"slug" dynamodb:"slug"`
 }
 
+// CheckoutConfig represents checkout configuration
 type CheckoutConfig struct {
 	ID                          int     `json:"id" dynamodb:"id"`
 	UUID                        string  `json:"uuid" dynamodb:"uuid"`
-	ShowCompanyInfo             bool    `json:"show_company_info" dynamodb:"show_company_info"`
-	LogoURL                     string  `json:"logo_url" dynamodb:"logo_url"`
-	BannerURL                   string  `json:"banner_url" dynamodb:"banner_url"`
-	FaviconEnabled              bool    `json:"favicon_enabled" dynamodb:"favicon_enabled"`
-	FaviconType                 string  `json:"favicon_type" dynamodb:"favicon_type"`
-	FaviconURL                  string  `json:"favicon_url" dynamodb:"favicon_url"`
 	LogoEnabled                 bool    `json:"logo_enabled" dynamodb:"logo_enabled"`
+	LogoURL                     string  `json:"logo_url" dynamodb:"logo_url"`
 	LogoPosition                string  `json:"logo_position" dynamodb:"logo_position"`
 	BannerEnabled               bool    `json:"banner_enabled" dynamodb:"banner_enabled"`
+	BannerURL                   string  `json:"banner_url" dynamodb:"banner_url"`
 	BackgroundType              string  `json:"background_type" dynamodb:"background_type"`
 	BackgroundColor             string  `json:"background_color" dynamodb:"background_color"`
 	ColorPrimary                string  `json:"color_primary" dynamodb:"color_primary"`
@@ -160,16 +158,19 @@ type CheckoutConfig struct {
 	NupayEnabled                bool    `json:"nupay_enabled" dynamodb:"nupay_enabled"`
 	PicpayEnabled               bool    `json:"picpay_enabled" dynamodb:"picpay_enabled"`
 	ApplePayEnabled             bool    `json:"apple_pay_enabled" dynamodb:"apple_pay_enabled"`
+	GooglePayEnabled            bool    `json:"google_pay_enabled" dynamodb:"google_pay_enabled"`
 	AutomaticDiscountBankSlip   float64 `json:"automatic_discount_bank_slip" dynamodb:"automatic_discount_bank_slip"`
 	AutomaticDiscountCreditCard float64 `json:"automatic_discount_credit_card" dynamodb:"automatic_discount_credit_card"`
 	AutomaticDiscountPix        float64 `json:"automatic_discount_pix" dynamodb:"automatic_discount_pix"`
 	AutomaticDiscountNupay      float64 `json:"automatic_discount_nupay" dynamodb:"automatic_discount_nupay"`
 	AutomaticDiscountPicpay     float64 `json:"automatic_discount_picpay" dynamodb:"automatic_discount_picpay"`
 	AutomaticDiscountApplePay   float64 `json:"automatic_discount_apple_pay" dynamodb:"automatic_discount_apple_pay"`
+	AutomaticDiscountGooglePay  float64 `json:"automatic_discount_google_pay" dynamodb:"automatic_discount_google_pay"`
 	InstallmentsLimit           int     `json:"installments_limit" dynamodb:"installments_limit"`
 	PreselectedInstallment      int     `json:"preselected_installment" dynamodb:"preselected_installment"`
 	InterestFreeInstallments    int     `json:"interest_free_installments" dynamodb:"interest_free_installments"`
 	ShowWebsiteAddress          bool    `json:"show_website_address" dynamodb:"show_website_address"`
+	ShowCompanyInfo             bool    `json:"show_company_info" dynamodb:"show_company_info"`
 	AddressRequired             bool    `json:"address_required" dynamodb:"address_required"`
 	WhatsappEnabled             bool    `json:"whatsapp_enabled" dynamodb:"whatsapp_enabled"`
 	SupportPhone                string  `json:"support_phone" dynamodb:"support_phone"`
@@ -180,14 +181,80 @@ type CheckoutConfig struct {
 	NotificationsEnabled        bool    `json:"notifications_enabled" dynamodb:"notifications_enabled"`
 	SocialProofEnabled          bool    `json:"social_proof_enabled" dynamodb:"social_proof_enabled"`
 	ReviewsEnabled              bool    `json:"reviews_enabled" dynamodb:"reviews_enabled"`
+	FaviconEnabled              bool    `json:"favicon_enabled" dynamodb:"favicon_enabled"`
+	FaviconType                 string  `json:"favicon_type" dynamodb:"favicon_type"`
+	FaviconURL                  string  `json:"favicon_url" dynamodb:"favicon_url"`
+	GooglePayMerchantID         string  `json:"google_pay_merchant_id" dynamodb:"google_pay_merchant_id"`
 }
 
+// Review represents a customer review
+type Review struct {
+	ID               int    `json:"id" dynamodb:"id"`
+	CheckoutConfigID int    `json:"checkout_config_id" dynamodb:"checkoutConfigId"` // Fixed field name to match DynamoDB
+	Name             string `json:"name" dynamodb:"name"`
+	Description      string `json:"description" dynamodb:"description"`
+	PhotoURL         string `json:"photo_url" dynamodb:"photoUrl"` // Fixed field name to match DynamoDB
+	Stars            int    `json:"stars" dynamodb:"stars"`
+	Status           string `json:"status" dynamodb:"status"`
+}
+
+// Review status constants
+const (
+	ReviewStatusActive = "ACTIVE"
+)
+
+// Pixel represents a tracking pixel
+type Pixel struct {
+	ID                               int     `json:"id" dynamodb:"id"`
+	UUID                             string  `json:"uuid" dynamodb:"uuid"`
+	UserID                           int     `json:"user_id" dynamodb:"userId"` // Fixed to match DynamoDB
+	ProductID                        int     `json:"product_id" dynamodb:"productId"` // Fixed to match DynamoDB
+	Events                           string  `json:"events" dynamodb:"events"`
+	Platform                         string  `json:"platform" dynamodb:"platform"`
+	Code                             string  `json:"code" dynamodb:"code"`
+	IsAPI                            bool    `json:"is_api" dynamodb:"isApi"` // Fixed to match DynamoDB
+	Status                           bool    `json:"status" dynamodb:"status"`
+	EnableBankslipPurchasePercentage bool    `json:"enable_bankslip_purchase_percentage" dynamodb:"enableBankslipPurchasePercentage"` // Fixed camelCase
+	EnablePixPurchasePercentage      bool    `json:"enable_pix_purchase_percentage" dynamodb:"enablePixPurchasePercentage"` // Fixed camelCase
+	BankSlipPurchasePercentage       float64 `json:"bank_slip_purchase_percentage" dynamodb:"bankSlipPurchasePercentage"` // Fixed camelCase
+	PixPurchasePercentage            float64 `json:"pix_purchase_percentage" dynamodb:"pixPurchasePercentage"` // Fixed camelCase
+	GoogleAdsConversionLabel         string  `json:"google_ads_conversion_label" dynamodb:"googleAdsConversionLabel"` // Fixed camelCase
+}
+
+// Plan represents a subscription plan
+type Plan struct {
+	ID                      int     `json:"id" dynamodb:"id"`
+	UUID                    string  `json:"uuid" dynamodb:"uuid"`
+	OfferID                 int     `json:"offer_id" dynamodb:"offer_id"`
+	Title                   string  `json:"title" dynamodb:"title"`
+	Tag                     string  `json:"tag" dynamodb:"tag"`
+	Price                   int64   `json:"price" dynamodb:"price"` // stored as cents
+	PromotionalPrice        int64   `json:"promotional_price" dynamodb:"promotional_price"` // stored as cents
+	FirstChargePriceEnabled bool    `json:"first_charge_price_enabled" dynamodb:"first_charge_price_enabled"`
+	FirstChargePrice        int64   `json:"first_charge_price" dynamodb:"first_charge_price"` // stored as cents
+	ChargeFrequency         string  `json:"charge_frequency" dynamodb:"charge_frequency"`
+	IsDefault               bool    `json:"is_default" dynamodb:"is_default"`
+}
+
+// OrderBump represents an order bump offer
+type OrderBump struct {
+	ID               int    `json:"id" dynamodb:"id"`
+	OfferID          int    `json:"offer_id" dynamodb:"offer_id"`
+	OfferedOfferID   int    `json:"offered_offer_id" dynamodb:"offered_offer_id"`
+	Name             string `json:"name" dynamodb:"name"`
+	Tag              string `json:"tag" dynamodb:"tag"`
+	Description      string `json:"description" dynamodb:"description"`
+	Order            int    `json:"order" dynamodb:"order"`
+}
+
+// Affiliate represents an affiliate
 type Affiliate struct {
 	ID     int    `json:"id" dynamodb:"id"`
 	UUID   string `json:"uuid" dynamodb:"uuid"`
 	UserID int    `json:"user_id" dynamodb:"user_id"`
 }
 
+// ProductAffiliateSettings represents affiliate settings for a product
 type ProductAffiliateSettings struct {
 	ID                   int      `json:"id" dynamodb:"id"`
 	ProductID            int      `json:"product_id" dynamodb:"product_id"`
@@ -196,55 +263,8 @@ type ProductAffiliateSettings struct {
 	LastOffers           []string `json:"last_offers" dynamodb:"last_offers"`
 }
 
-func (pas *ProductAffiliateSettings) GetCookieLifetimeInDays() int {
-	return pas.CookieLifetime
-}
-
-type OrderBump struct {
-	ID             int    `json:"id" dynamodb:"id"`
-	OfferID        int    `json:"offer_id" dynamodb:"offer_id"`
-	OfferedOfferID int    `json:"offered_offer_id" dynamodb:"offered_offer_id"`
-	Name           string `json:"name" dynamodb:"name"`
-	Tag            string `json:"tag" dynamodb:"tag"`
-	Description    string `json:"description" dynamodb:"description"`
-	Order          int    `json:"order" dynamodb:"order"`
-}
-
-type Review struct {
-	ID                 int    `json:"id" dynamodb:"id"`
-	Name               string `json:"name" dynamodb:"name"`
-	Description        string `json:"description" dynamodb:"description"`
-	PhotoURL           string `json:"photo_url" dynamodb:"photo_url"`
-	Stars              int    `json:"stars" dynamodb:"stars"`
-	CheckoutConfigUUID string `json:"checkout_config_uuid" dynamodb:"checkout_config_uuid"`
-}
-
-type Pixel struct {
-	ID                               int     `json:"id" dynamodb:"id"`
-	UUID                             string  `json:"uuid" dynamodb:"uuid"`
-	Events                           string  `json:"events" dynamodb:"events"`
-	Platform                         string  `json:"platform" dynamodb:"platform"`
-	Code                             string  `json:"code" dynamodb:"code"`
-	Status                           bool    `json:"status" dynamodb:"status"`
-	IsAPI                            bool    `json:"is_api" dynamodb:"is_api"`
-	EnableBankslipPurchasePercentage bool    `json:"enable_bankslip_purchase_percentage" dynamodb:"enable_bankslip_purchase_percentage"`
-	EnablePixPurchasePercentage      bool    `json:"enable_pix_purchase_percentage" dynamodb:"enable_pix_purchase_percentage"`
-	BankSlipPurchasePercentage       float64 `json:"bank_slip_purchase_percentage" dynamodb:"bank_slip_purchase_percentage"`
-	PixPurchasePercentage            float64 `json:"pix_purchase_percentage" dynamodb:"pix_purchase_percentage"`
-	GoogleAdsConversionLabel         string  `json:"google_ads_conversion_label" dynamodb:"google_ads_conversion_label"`
-}
-
-type Plan struct {
-	ID                      int    `json:"id" dynamodb:"id"`
-	UUID                    string `json:"uuid" dynamodb:"uuid"`
-	Title                   string `json:"title" dynamodb:"title"`
-	Tag                     string `json:"tag" dynamodb:"tag"`
-	Price                   int64  `json:"price" dynamodb:"price"`                         // stored as cents
-	PromotionalPrice        int64  `json:"promotional_price" dynamodb:"promotional_price"` // stored as cents
-	FirstChargePriceEnabled bool   `json:"first_charge_price_enabled" dynamodb:"first_charge_price_enabled"`
-	FirstChargePrice        int64  `json:"first_charge_price" dynamodb:"first_charge_price"` // stored as cents
-	ChargeFrequency         string `json:"charge_frequency" dynamodb:"charge_frequency"`
-	IsDefault               bool   `json:"is_default" dynamodb:"is_default"`
+func (p *ProductAffiliateSettings) GetCookieLifetimeInDays() int {
+	return p.CookieLifetime
 }
 
 // Constants for status and type enumerations

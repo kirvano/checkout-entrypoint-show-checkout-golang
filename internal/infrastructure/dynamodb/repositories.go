@@ -470,7 +470,34 @@ type AffiliatesRepository struct {
 }
 
 func (r *AffiliatesRepository) FindByUUID(ctx context.Context, uuid string) (*repositories.Affiliate, error) {
-	return &repositories.Affiliate{}, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("UuidIndex"),
+		KeyConditionExpression: stringPtr("#uuid = :uuid"),
+		ExpressionAttributeNames: map[string]string{
+			"#uuid": "uuid",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uuid": &types.AttributeValueMemberS{Value: uuid},
+		},
+		Limit: int32Ptr(1),
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get affiliate by UUID: %w", err)
+	}
+
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	var affiliate repositories.Affiliate
+	if err := attributevalue.UnmarshalMap(result.Items[0], &affiliate); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal affiliate: %w", err)
+	}
+
+	return &affiliate, nil
 }
 
 type ProductAffiliateSettingsRepository struct {
@@ -479,7 +506,31 @@ type ProductAffiliateSettingsRepository struct {
 }
 
 func (r *ProductAffiliateSettingsRepository) FindByProduct(ctx context.Context, productID int) (*repositories.ProductAffiliateSettings, error) {
-	return &repositories.ProductAffiliateSettings{}, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("ProductIdIndex"),
+		KeyConditionExpression: stringPtr("product_id = :product_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":product_id": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", productID)},
+		},
+		Limit: int32Ptr(1),
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get product affiliate settings by product ID: %w", err)
+	}
+
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	var settings repositories.ProductAffiliateSettings
+	if err := attributevalue.UnmarshalMap(result.Items[0], &settings); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal product affiliate settings: %w", err)
+	}
+
+	return &settings, nil
 }
 
 type OrderBumpsRepository struct {
@@ -488,7 +539,30 @@ type OrderBumpsRepository struct {
 }
 
 func (r *OrderBumpsRepository) FindAllByOffer(ctx context.Context, offerID int) ([]*repositories.OrderBump, error) {
-	return []*repositories.OrderBump{}, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("OfferIdIndex"),
+		KeyConditionExpression: stringPtr("offer_id = :offer_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":offer_id": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", offerID)},
+		},
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query order bumps by offer: %w", err)
+	}
+
+	var orderBumps []*repositories.OrderBump
+	for _, item := range result.Items {
+		var orderBump repositories.OrderBump
+		if err := attributevalue.UnmarshalMap(item, &orderBump); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal order bump: %w", err)
+		}
+		orderBumps = append(orderBumps, &orderBump)
+	}
+
+	return orderBumps, nil
 }
 
 type ReviewsRepository struct {
@@ -497,7 +571,37 @@ type ReviewsRepository struct {
 }
 
 func (r *ReviewsRepository) FindByCheckoutConfig(ctx context.Context, checkoutConfigID int) ([]*repositories.Review, error) {
-	return []*repositories.Review{}, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("checkoutConfigId-index"), // Fixed to match TypeScript
+		KeyConditionExpression: stringPtr("#checkoutConfigId = :checkoutConfigId"),
+		ExpressionAttributeNames: map[string]string{
+			"#checkoutConfigId": "checkoutConfigId", // Fixed to match TypeScript
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":checkoutConfigId": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", checkoutConfigID)},
+		},
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query reviews by checkout config: %w", err)
+	}
+
+	var reviews []*repositories.Review
+	for _, item := range result.Items {
+		var review repositories.Review
+		if err := attributevalue.UnmarshalMap(item, &review); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal review: %w", err)
+		}
+		
+		// Filter by status = ACTIVE (same as TypeScript)
+		if review.Status == repositories.ReviewStatusActive {
+			reviews = append(reviews, &review)
+		}
+	}
+
+	return reviews, nil
 }
 
 type PixelsRepository struct {
@@ -506,7 +610,36 @@ type PixelsRepository struct {
 }
 
 func (r *PixelsRepository) FindAllByUserAndProduct(ctx context.Context, userID, productID int) ([]*repositories.Pixel, error) {
-	return []*repositories.Pixel{}, nil // Simplified for demo
+	// Use composite key query to match TypeScript implementation
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("productId-userId-index"), // Fixed to match TypeScript
+		KeyConditionExpression: stringPtr("#productId = :productId AND #userId = :userId"), // Composite key like TypeScript
+		ExpressionAttributeNames: map[string]string{
+			"#productId": "productId", // Fixed field names to match TypeScript
+			"#userId":    "userId",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":productId": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", productID)},
+			":userId":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", userID)},
+		},
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pixels by user and product: %w", err)
+	}
+
+	var pixels []*repositories.Pixel
+	for _, item := range result.Items {
+		var pixel repositories.Pixel
+		if err := attributevalue.UnmarshalMap(item, &pixel); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal pixel: %w", err)
+		}
+		pixels = append(pixels, &pixel)
+	}
+
+	return pixels, nil
 }
 
 type PlansRepository struct {
@@ -514,8 +647,65 @@ type PlansRepository struct {
 	tableName string
 }
 
+func (r *PlansRepository) FindByUuid(ctx context.Context, uuid string) (*repositories.Plan, error) {
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("UuidIndex"),
+		KeyConditionExpression: stringPtr("#uuid = :uuid"),
+		ExpressionAttributeNames: map[string]string{
+			"#uuid": "uuid",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uuid": &types.AttributeValueMemberS{Value: uuid},
+		},
+		Limit: int32Ptr(1),
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query plan by UUID: %w", err)
+	}
+
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	var plan repositories.Plan
+	if err := attributevalue.UnmarshalMap(result.Items[0], &plan); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal plan: %w", err)
+	}
+
+	return &plan, nil
+}
+
 func (r *PlansRepository) FindByOffer(ctx context.Context, offerID int) ([]*repositories.Plan, error) {
-	return []*repositories.Plan{}, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("offerId-index"), // Fixed to match TypeScript
+		KeyConditionExpression: stringPtr("#offerId = :offerId"),
+		ExpressionAttributeNames: map[string]string{
+			"#offerId": "offerId", // Fixed to match TypeScript
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":offerId": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", offerID)},
+		},
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query plans by offer: %w", err)
+	}
+
+	var plans []*repositories.Plan
+	for _, item := range result.Items {
+		var plan repositories.Plan
+		if err := attributevalue.UnmarshalMap(item, &plan); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal plan: %w", err)
+		}
+		plans = append(plans, &plan)
+	}
+
+	return plans, nil
 }
 
 type DiscountsRepository struct {
@@ -524,7 +714,22 @@ type DiscountsRepository struct {
 }
 
 func (r *DiscountsRepository) CheckHasDiscounts(ctx context.Context, productID int) (bool, error) {
-	return false, nil // Simplified for demo
+	input := &dynamodb.QueryInput{
+		TableName:              &r.tableName,
+		IndexName:              stringPtr("ProductIdIndex"),
+		KeyConditionExpression: stringPtr("product_id = :product_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":product_id": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", productID)},
+		},
+		Limit: int32Ptr(1), // We only need to know if at least one exists
+	}
+
+	result, err := r.client.GetDynamoDB().Query(ctx, input)
+	if err != nil {
+		return false, fmt.Errorf("failed to query discounts by product: %w", err)
+	}
+
+	return len(result.Items) > 0, nil
 }
 
 // Helper functions

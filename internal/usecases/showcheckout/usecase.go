@@ -312,12 +312,14 @@ func (uc *UseCase) Execute(ctx context.Context, req *ShowCheckoutRequest) (*Show
 	// Determine payment options
 	creditCardEnabled := checkoutConfig.CreditCardEnabled && (!uc.isProduction() || company.MovingpayEcID != "")
 	applePayEnabled := checkoutConfig.ApplePayEnabled && offer.BillingType == repositories.OfferBillingTypeOneTime
+	googlePayEnabled := checkoutConfig.GooglePayEnabled && offer.BillingType == repositories.OfferBillingTypeOneTime
 
 	// Build response
 	response := &ShowCheckoutResponse{
-		BillingType:     offer.BillingType,
-		IsFree:          offer.IsFree,
-		BackRedirectURL: uc.getBackRedirectURL(offer),
+		BillingType:         offer.BillingType,
+		IsFree:              offer.IsFree,
+		BackRedirectURL:     uc.getBackRedirectURL(offer),
+		GooglePayMerchantID: uc.getGooglePayMerchantID(checkoutConfig),
 		Config: CheckoutConfig{
 			CheckoutUUID:                checkout.GetUUID(),
 			CheckoutDate:                checkout.CreatedAt.Format(time.RFC3339),
@@ -343,12 +345,14 @@ func (uc *UseCase) Execute(ctx context.Context, req *ShowCheckoutRequest) (*Show
 			NupayEnabled:                false, // TODO: Enable Nupay
 			PicpayEnabled:               checkoutConfig.PicpayEnabled && offer.BillingType == repositories.OfferBillingTypeOneTime,
 			ApplePayEnabled:             applePayEnabled,
+			GooglePayEnabled:            googlePayEnabled,
 			AutomaticDiscountBankSlip:   checkoutConfig.AutomaticDiscountBankSlip,
 			AutomaticDiscountCreditCard: checkoutConfig.AutomaticDiscountCreditCard,
 			AutomaticDiscountPix:        checkoutConfig.AutomaticDiscountPix,
 			AutomaticDiscountNupay:      checkoutConfig.AutomaticDiscountNupay,
 			AutomaticDiscountPicpay:     checkoutConfig.AutomaticDiscountPicpay,
 			AutomaticDiscountApplePay:   checkoutConfig.AutomaticDiscountApplePay,
+			AutomaticDiscountGooglePay:  checkoutConfig.AutomaticDiscountGooglePay,
 			InstallmentsLimit:           checkoutConfig.InstallmentsLimit,
 			PreselectedInstallment:      checkoutConfig.PreselectedInstallment,
 			InterestFreeInstallments:    checkoutConfig.InterestFreeInstallments,
@@ -365,7 +369,7 @@ func (uc *UseCase) Execute(ctx context.Context, req *ShowCheckoutRequest) (*Show
 			SocialProofEnabled:          checkoutConfig.SocialProofEnabled,
 			ReviewsEnabled:              checkoutConfig.ReviewsEnabled,
 		},
-		OrderBumps: responseOrderBumps,
+		OrderBumps:        responseOrderBumps,
 		Product: ResponseProduct{
 			UUID:   product.UUID,
 			Name:   product.Name,
@@ -474,6 +478,13 @@ func (uc *UseCase) contains(slice []string, item string) bool {
 
 func (uc *UseCase) databaseToFloat(value int64) float64 {
 	return float64(value) / 100.0 // Convert cents to dollars
+}
+
+func (uc *UseCase) getGooglePayMerchantID(checkoutConfig *repositories.CheckoutConfig) *string {
+	if checkoutConfig.GooglePayMerchantID != "" {
+		return &checkoutConfig.GooglePayMerchantID
+	}
+	return nil
 }
 
 func (uc *UseCase) isProduction() bool {

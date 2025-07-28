@@ -42,18 +42,19 @@ type UTMInfo struct {
 
 // ShowCheckoutResponse represents the output of the ShowCheckout use case
 type ShowCheckoutResponse struct {
-	BillingType       string                     `json:"billing_type"`
-	IsFree            bool                       `json:"is_free"`
-	BackRedirectURL   *string                    `json:"back_redirect_url,omitempty"`
-	Config            CheckoutConfig             `json:"config"`
-	OrderBumps        []ResponseOrderBump        `json:"order_bumps"`
-	Product           ResponseProduct            `json:"product"`
-	Reviews           []ResponseReview           `json:"reviews"`
-	Pixels            []ResponsePixel            `json:"pixels"`
-	Company           *ResponseCompany           `json:"company,omitempty"`
-	AffiliateSettings *ResponseAffiliateSettings `json:"affiliate_settings,omitempty"`
-	Customer          *ResponseCustomer          `json:"customer,omitempty"`
-	Plans             []ResponsePlan             `json:"plans,omitempty"`
+	BillingType         string                     `json:"billing_type"`
+	IsFree              bool                       `json:"is_free"`
+	BackRedirectURL     *string                    `json:"back_redirect_url,omitempty"`
+	Config              CheckoutConfig             `json:"config"`
+	OrderBumps          []ResponseOrderBump        `json:"order_bumps"`
+	Product             ResponseProduct            `json:"product"`
+	Reviews             []ResponseReview           `json:"reviews"`
+	Pixels              []ResponsePixel            `json:"pixels"`
+	Company             *ResponseCompany           `json:"company,omitempty"`
+	AffiliateSettings   *ResponseAffiliateSettings `json:"affiliate_settings,omitempty"`
+	Customer            *ResponseCustomer          `json:"customer,omitempty"`
+	Plans               []ResponsePlan             `json:"plans,omitempty"`
+	GooglePayMerchantID *string                    `json:"google_pay_merchant_id,omitempty"`
 }
 
 // CheckoutConfig contains checkout configuration settings
@@ -82,12 +83,14 @@ type CheckoutConfig struct {
 	NupayEnabled                bool    `json:"nupay_enabled"`
 	PicpayEnabled               bool    `json:"picpay_enabled"`
 	ApplePayEnabled             bool    `json:"apple_pay_enabled"`
+	GooglePayEnabled            bool    `json:"google_pay_enabled"`
 	AutomaticDiscountBankSlip   float64 `json:"automatic_discount_bank_slip"`
 	AutomaticDiscountCreditCard float64 `json:"automatic_discount_credit_card"`
 	AutomaticDiscountPix        float64 `json:"automatic_discount_pix"`
 	AutomaticDiscountNupay      float64 `json:"automatic_discount_nupay"`
 	AutomaticDiscountPicpay     float64 `json:"automatic_discount_picpay"`
 	AutomaticDiscountApplePay   float64 `json:"automatic_discount_apple_pay"`
+	AutomaticDiscountGooglePay  float64 `json:"automatic_discount_google_pay"`
 	InstallmentsLimit           int     `json:"installments_limit"`
 	PreselectedInstallment      int     `json:"preselected_installment"`
 	InterestFreeInstallments    int     `json:"interest_free_installments"`
